@@ -5,8 +5,7 @@ import os
 
 # function that filters the country
 def filter_country(row):
-    new_row = row.split(' ')
-    if country != 'all':
+    if S != 'all':
         if new_row[7] == S:
             return ((new_row[1], new_row[6]), new_row[3]) # 1 product, 6 customer, 3 quantity
         else:
@@ -29,7 +28,23 @@ def gather_prod_cust(pairs):
 # function for point 2
 def point2(rdd):
     productCustomer = rdd.flatMap(filter_country).mapPartitions(gather_prod_cust)
-    return productCustomer    
+    return productCustomer  
+    
+# function that for each product computes the number of customers that bought it
+def gather_customers(pairs):
+    product_dict = dict()
+    product = pairs[0]
+    if product not in product_dict:
+        product_dict[product] = 1
+    else:
+        product_dict[product] = product_dict[product] + 1
+    return ((prod, product_dict[prod]) for prod in product_dict.keys())
+        
+# function for point 4 (sums all 1's)
+def sum_of_1s(pair):
+    list_of_1 = list(pair[1])
+    return (pair[0], len(list_of_1)
+         
 
     
     
@@ -69,6 +84,8 @@ def main():
     # creation of the RDD
     rawData = sc.textFile(data_path, minPartitions = K).cache()
     rawData.repartition(numPartitions = K)
+    # split rows
+    rawData = rawData.map(lambda row: row.split(','))
     
     # 1) print the number of elements of the RDD rawData
     print('Number of elements of RDD rawData: ', rawData.count())
@@ -76,6 +93,24 @@ def main():
     # 2) point
     productCustomer = point2(rawData)
     print('Number of (product, customer) with country filtered and quantity > 0: ', productCustomer.count())
+    
+    # 3) point
+    productPopularity1 = productCustomer.mapPartitions(gather_customers)
+    
+    # 4) point
+    productPopularity2 = productCustomer.mapToPair(lambda row: (row[0], 1)).reduceByKey(sum_of_1s)
+    
+    # 5) point
+    if H > 0:
+        list_popularity = list(productPopularity1.map(lambda (key, value): (value, key)).sortByKey(ascending = False).filter((x): x[0] > H))
+    
+    # 6) point
+    elif H == 0:
+        list1 = list(productPopularity1.sortByKey())
+        print(list1)
+        list2 = list(productPopularity2.sortByKey())
+        print(list2)
+        
     
 
     # global variables
